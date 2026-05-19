@@ -7,8 +7,7 @@ node_modules
 
 /generated/prisma/
 
-url_shortner/generated/
-url_shortner/src/generated/
+/src/generated/
 
 .idea/
 .vscode/

@@ -9,9 +9,28 @@ datasource db {
 }
 
 model Url {
-     id     Int     @id @default(autoincrement())
+     id             Int         @id @default(autoincrement())
      shortCode      String      @unique
-     originalUrl     String
+     originalUrl    String
      createdAt      DateTime    @default(now())
      expiresAt      DateTime?
+     userId         Int?
+     user           User?       @relation(fields: [userId],references: [id])
+}
+
+model User {
+    id          Int         @id @default(autoincrement())
+    email       String      @unique
+    password    String
+    createdAt   DateTime    @default(now())
+    urls        Url[]
+}
+
+model clickEvent{
+    id          Int         @id @default(autoincrement())
+    shortCode   String
+    ipAddress   String?
+    userAgent   String?
+    referrer    String?
+    createdAt   DateTime     @default(now())
 }

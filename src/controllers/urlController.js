@@ -1,18 +1,21 @@
 const {
     createShortUrl,
     getOriginalUrl,
-} = require('../services/urlService')
+} = require('../services/urlService');
+
+const validator = require('validator');
 
 async function shortenUrl(req,res){
     try{
-        const { url } = req.body;
-        if(!url){
+        const { url, customAlias, expiresAt } = req.body;
+        if(!url||!validator.isURL(url)){
             return res.status(400).json({
-                error: 'URL is required.',
+                error: 'Valid URL is required.',
             })
         }
 
-        const result = await createShortUrl(url);
+        const result = await createShortUrl(url, customAlias, expiresAt);
+
         return res.status(201).json({
             shortUrl: `${process.env.BASE_URL}/${result.shortCode}`,
             shortCode: result.shortCode,
@@ -25,6 +28,8 @@ async function shortenUrl(req,res){
         });
     }
 }
+
+
 async function redirectUrl(req, res){
         try{
             const { code } = req.params;
@@ -35,6 +40,13 @@ async function redirectUrl(req, res){
                     error: 'Short url not found.'
                 });
             }
+
+            if(urlEntry.expiresAt && new Date() > new Date(expiresAt)){
+                return res.status(410).json({
+                    error: 'Short url expired!',
+                });
+            }
+
             return res.redirect(302, urlEntry.originalUrl);
         }catch(error){
             console.error(error);

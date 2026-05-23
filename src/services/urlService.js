@@ -2,7 +2,7 @@ const prisma = require('../db/prisma');
 const encoded62 = require('../utils/base62')
 
 
-async function createShortUrl(originalUrl, customAlias){
+async function createShortUrl(originalUrl, customAlias, expiresAt, userId){
     if(customAlias){
         const existing = await prisma.url.findUnique({
            where: {
@@ -29,6 +29,7 @@ async function createShortUrl(originalUrl, customAlias){
                 originalUrl,
                 shortCode: customAlias,
                 expiresAt: expiresAt ? new Date(expiresAt) : null,
+                userId,
            },
         });
     }
@@ -36,6 +37,8 @@ async function createShortUrl(originalUrl, customAlias){
         data:{
             originalUrl,
             shortCode: '',
+            expiresAt: expiresAt? new Date(expiresAt): null,
+            userId,
         },
     });
 

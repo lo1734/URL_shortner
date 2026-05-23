@@ -4,17 +4,18 @@ const {
 } = require('../services/urlService');
 
 const validator = require('validator');
+const prisma = require('../db/prisma')
 
 async function shortenUrl(req,res){
     try{
-        const { url, customAlias, expiresAt } = req.body;
+        const { url, customAlias, expiresAt, userId } = req.body;
         if(!url||!validator.isURL(url)){
             return res.status(400).json({
                 error: 'Valid URL is required.',
             })
         }
-
-        const result = await createShortUrl(url, customAlias, expiresAt);
+//        const userId = req.user.userId;
+        const result = await createShortUrl(url, customAlias, expiresAt, userId);
 
         return res.status(201).json({
             shortUrl: `${process.env.BASE_URL}/${result.shortCode}`,
@@ -57,8 +58,27 @@ async function redirectUrl(req, res){
         }
  }
 
+ async function getUrls(req,res){
+    try{
+        const urls = await prisma.url.findMany({
+            where:{
+                userId: req.user.userId,
+            },
+            orderBy:{
+                createdAt: "desc",
+            },
+        });
+        return res.json(urls);
+    }catch(error){
+        return res.status(500).json({
+            error: 'Internal Server Error.',
+        });
+    }
+ }
+
 module.exports = {
     shortenUrl,
     redirectUrl,
+    getUrls,
 };
 

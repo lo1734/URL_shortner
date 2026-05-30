@@ -17,7 +17,7 @@ export function AuthProvider({children}){
             return;
         }
         try{
-            const response = await api.get('/me');
+            const response = await api.get('/auth/me');
             setUser(response.data.user);
         }catch(error){
             localStorage.removeItem('token');
@@ -28,27 +28,23 @@ export function AuthProvider({children}){
     useEffect(()=>{
         loadUser();
     },[]);
-    async function login(email,password){
+
+    async function login(email, password, captchaToken) {
         const response = await api.post(
             '/auth/login',
-            {
-                email,
-                password,
-            }
+            { email, password, captchaToken }
         );
-        localStorage.setitem(
-            'token',
-            response.data.token
-        );
+        localStorage.setItem('token', response.data.token);
         setUser(response.data.user);
     }
 
-    async function register(email,password){
+    async function register(email, password, captchaToken) {
         await api.post(
             '/auth/register',
             {
                 email,
                 password,
+                captchaToken,
             },
         );
     }

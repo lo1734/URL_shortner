@@ -17,14 +17,39 @@ const {
 
 async function shortenUrl(req,res){
     try{
-        const { url, customAlias, expiresAt, userId } = req.body;
-        if(!url||!validator.isURL(url)){
+        const { url, CustomAlias, expiresAt } = req.body;
+        if(!url || !validator.isURL(url)){
             return res.status(400).json({
                 error: 'Valid URL is required.',
             })
         }
-//        const userId = req.user.userId;
-        const result = await createShortUrl(url, customAlias, expiresAt, userId);
+
+        let newUrl = url.trim();
+        if (!/^https?:\/\//i.test(url)) {
+            newUrl = `https://${newUrl}`;
+        }
+//        console.log(url);
+        const userId = req.user.userId;
+//        if(CustomAlias){
+//                const Exist_CA = await prisma.url.findUnique({
+//                    where:{
+//                        shortCode: CustomAlias
+//                    },
+//                });
+//            if(!Exist_CA){
+//                return res.status(201).json({
+//                    shortUrl: `${process.env.BASE_URL}/${Exist_CA.shortCode}`,
+//                    shortCode: result.shortCode,
+//                    OriginalUrl: result.originalUrl,
+//                });
+//            }
+//            else{
+//                return res.status(404).json({
+//                    error:"CustomAlias already exist for other Link."
+//                });
+//            }
+//        }
+        const result = await createShortUrl(newUrl, CustomAlias, expiresAt, userId);
 
         return res.status(201).json({
             shortUrl: `${process.env.BASE_URL}/${result.shortCode}`,
@@ -32,7 +57,7 @@ async function shortenUrl(req,res){
             OriginalUrl: result.originalUrl,
         });
     }catch(error){
-        console.log(error);
+        console.error(error);
         return res.status(500).json({
             error: 'Internal Server Error',
         });
@@ -68,9 +93,6 @@ async function redirectUrl(req, res){
                             console.log("Cache updated.")
                         }
                     }
-//                    else{
-//                         console.log("Cache was updated while waiting line! DB query skipped.");
-//                    }
                 });
 
                 if(!urlEntry){
@@ -78,7 +100,8 @@ async function redirectUrl(req, res){
                         error: 'Short Url not found.'
                     });
                 }
-            }else{
+            }
+            else{
                 console.log("Cache Hit.");
             }
 
@@ -87,14 +110,19 @@ async function redirectUrl(req, res){
                     error: 'Short url expired!',
                 });
             }
-
+//            console.log(code);
+//            console.log(req.ip);
+//            console.log(req.headers['user-agent']);
+//            console.log(req.headers.referrer || null);
+//            console.log(req.url);
+            console.log(req.host);
             analyticsQueue.add(
-                'track-click',
+                'trackClick',
                 {
                     shortCode: code,
                     ipAddress: req.ip,
                     userAgent: req.headers['user-agent'],
-                    referrer: req.headers.referrer||null,
+                    referrer: req.headers.referrer || null,
                 },
                 {
                     attempts: 3,
@@ -105,10 +133,11 @@ async function redirectUrl(req, res){
                 }
             );
 
+            console.log("analyticsQueue passed.");
+
             return res.redirect(302, urlEntry.originalUrl);
         }catch(error){
-            console.error(error);
-
+            console.error("Redirection pipeline execution crash:", error);
             return res.status(500).json({
                 error:'Internal server error.'
             });
@@ -117,15 +146,41 @@ async function redirectUrl(req, res){
 
  async function getUrls(req,res){
     try{
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        const search = req.query.search || '';
+        const skip = (page-1)*limit;
+
         const urls = await prisma.url.findMany({
             where:{
                 userId: req.user.userId,
+                originalUrl: {
+                    contains: search,
+                    mode: 'insensitive',
+                },
             },
             orderBy:{
                 createdAt: "desc",
             },
+            skip,
+            take: limit,
         });
-        return res.json(urls);
+
+        const total = await prisma.url.count({
+            where:{
+                userId: req.user.userId,
+                originalUrl:{
+                    contains: search,
+                    mode:'insensitive',
+                },
+            },
+        });
+        return res.json({
+            urls,
+            total,
+            page,
+            totalPages: Math.ceil(total/limit),
+        });
     }catch(error){
         return res.status(500).json({
             error: 'Internal Server Error.',
@@ -133,9 +188,90 @@ async function redirectUrl(req, res){
     }
  }
 
+ async function deleteUrl(req,res){
+    try{
+        const { id } = req.params;
+        const url = await prisma.url.findUnique({
+            where:{
+                id: Number(id),
+            },
+        });
+
+        if(!url || url.userId !== req.user.userId){
+            return res.status(404).json({
+                error: "url not found.",
+            });
+        }
+
+        await prisma.url.delete({
+            where:{
+                id: Number(id),
+            },
+        });
+        return res.json({
+            message: 'URL deleted successfully.',
+        });
+    }catch(error){
+        return res.status(500).json({
+            error: 'Internal Server error.',
+        });
+    }
+ }
+
+async function getStats(req, res) {
+    try {
+        const userId = req.user.userId;
+        const now = new Date();
+        const weekAgo  = new Date(now - 7  * 24 * 60 * 60 * 1000);
+        const twoWeeksAgo = new Date(now - 14 * 24 * 60 * 60 * 1000);
+
+        // ── Links ────────────────────────────────────────────────
+        const [totalLinks, linksThisWeek, linksLastWeek, activeLinks] = await Promise.all([
+            prisma.url.count({ where: { userId } }),
+            prisma.url.count({ where: { userId, createdAt: { gte: weekAgo } } }),
+            prisma.url.count({ where: { userId, createdAt: { gte: twoWeeksAgo, lt: weekAgo } } }),
+            prisma.url.count({
+                where: {
+                    userId,
+                    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+                },
+            }),
+        ]);
+
+        // ── Clicks (across all urls owned by this user) ───────────
+        // Get all shortCodes that belong to this user
+        const userUrls = await prisma.url.findMany({
+            where: { userId },
+            select: { shortCode: true },
+        });
+        const codes = userUrls.map((u) => u.shortCode);
+
+        const [totalClicks, clicksThisWeek, clicksLastWeek] = await Promise.all([
+            prisma.clickEvent.count({ where: { shortCode: { in: codes } } }),
+            prisma.clickEvent.count({ where: { shortCode: { in: codes }, clickedAt: { gte: weekAgo } } }),
+            prisma.clickEvent.count({ where: { shortCode: { in: codes }, clickedAt: { gte: twoWeeksAgo, lt: weekAgo } } }),
+        ]);
+
+        return res.json({
+            totalLinks,
+            linksThisWeek,
+            linksLastWeek,
+            totalClicks,
+            clicksThisWeek,
+            clicksLastWeek,
+            activeLinks,
+        });
+    } catch (error) {
+        console.error('[getStats]', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
 module.exports = {
     shortenUrl,
     redirectUrl,
     getUrls,
+    deleteUrl,
+    getStats,
 };
 

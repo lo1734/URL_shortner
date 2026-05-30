@@ -2,14 +2,16 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('./authMiddleware')
 const { authLimiter } = require('../middleware/rateLimiter');
+const verifyCaptcha = require('../middleware/captchaMiddleware');
 
 const{
     register,
     login,
 } = require('./authController');
 
-router.post('/register', authLimiter, register);
-router.post('/login', authLimiter, login);
+router.post('/register', authLimiter, verifyCaptcha, register);
+router.post('/login', authLimiter, verifyCaptcha, login);
+
 router.get(
     '/me',
     authenticate,

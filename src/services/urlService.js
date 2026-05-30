@@ -17,13 +17,13 @@ async function createShortUrl(originalUrl, customAlias, expiresAt, userId){
         const existingUrl = await prisma.url.findFirst({
                where: {
                     originalUrl,
+                    userId,
                },
         });
 
         if(existingUrl && !customAlias){
              return existingUrl;
         }
-
         return prisma.url.create({
            data: {
                 originalUrl,
@@ -32,6 +32,16 @@ async function createShortUrl(originalUrl, customAlias, expiresAt, userId){
                 userId,
            },
         });
+    }
+    const existing = await prisma.url.findFirst({
+        where:{
+            originalUrl,
+            userId,
+        }
+    });
+    if(existing){
+        console.log(existing);
+        return existing;
     }
     const urlEntry = await prisma.url.create({
         data:{

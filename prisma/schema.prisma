@@ -14,6 +14,7 @@ model Url {
      expiresAt      DateTime?
      userId         Int?
      user           User?       @relation(fields: [userId],references: [id])
+     clickEvents    clickEvent[]
 }
 
 model User {
@@ -25,10 +26,13 @@ model User {
 }
 
 model clickEvent{
-    id          Int         @id @default(autoincrement())
+    id          Int           @id @default(autoincrement())
     shortCode   String
     ipAddress   String?
     userAgent   String?
     referrer    String?
-    createdAt   DateTime     @default(now())
+    clickedAt   DateTime     @default(now())
+
+    urlId       Int
+    url         Url          @relation(fields: [urlId], references: [id], onDelete: Cascade)
 }

@@ -2,27 +2,41 @@ const express = require('express');
 const router = express.Router()
 const authenticate = require('../auth/authMiddleware')
 const {
-shortenLimiter,
+    shortenLimiter,
 } = require('../middleware/rateLimiter');
+const verifyCaptcha = require('../middleware/captchaMiddleware');
 
 const {
     shortenUrl,
     redirectUrl,
     getUrls,
+    deleteUrl,
+    getStats,
 } = require('../controllers/urlController');
 
-const { client } = require('../monitoring/metrics');
 
 router.post('/shorten',
     authenticate,
     shortenLimiter,
+    verifyCaptcha,
     shortenUrl
 );
-router.get('/:code', redirectUrl);
+
 router.get('/urls',
     authenticate,
     getUrls,
-)
+);
 
+router.delete('/urls/:id',
+    authenticate,
+    deleteUrl,
+);
+
+router.get('/stats',
+    authenticate,
+    getStats,
+);
+
+router.get('/:code', redirectUrl);
 
 module.exports = router;

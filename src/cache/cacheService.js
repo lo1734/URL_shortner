@@ -1,8 +1,7 @@
 const connection = require('../queue/redisConnection');
 
-
 async function getCachedUrl(shortCode){
-    const data = await connection.get(`url: ${shortCode}`);
+    const data = await connection.get(`url:${shortCode}`);
     return data? JSON.parse(data):null;
 }
 

@@ -13,7 +13,7 @@ async function getAnalytics(req,res){
                 shortCode: code,
             },
             orderBy:{
-                createdAt: 'desc',
+                clickedAt: 'desc',
             },
             take: 20,
         });
@@ -22,7 +22,7 @@ async function getAnalytics(req,res){
            recentClicks: clicks,
         });
       }catch(error){
-           return res.status.json({
+           return res.status(500).json({
                 error: 'Internal Server Error',
            });
       }

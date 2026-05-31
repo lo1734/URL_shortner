@@ -23,7 +23,7 @@ function Analytics() {
 
   async function fetchAnalytics() {
     try {
-      const response = await api.get(`/analytics/${code}`);
+      const response = await api.get(`/analyticsRoutes/${code}`);
       setAnalytics(response.data);
     } catch (error) {
       toast.error('Failed to load analytics.');

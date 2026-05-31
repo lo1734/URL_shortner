@@ -1,6 +1,16 @@
 const prisma = require('../db/prisma');
-const encoded62 = require('../utils/base62')
+//const encoded62 = require('../utils/base62')
+const crypto = require('crypto');
+const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
+function generationNanoId(length){
+    const bytes = crypto.randomBytes(length);
+    let result = '';
+    for(let i=0;i<length;i++){
+        result += ALPHABET[bytes[i] % 62];
+    }
+    return result;
+}
 
 async function createShortUrl(originalUrl, customAlias, expiresAt, userId){
     if(customAlias){
@@ -43,25 +53,30 @@ async function createShortUrl(originalUrl, customAlias, expiresAt, userId){
         console.log(existing);
         return existing;
     }
-    const urlEntry = await prisma.url.create({
-        data:{
-            originalUrl,
-            shortCode: '',
-            expiresAt: expiresAt? new Date(expiresAt): null,
-            userId,
-        },
-    });
 
-     const shortCode = encoded62(urlEntry.id);
-
-     return prisma.url.update({
-        where: {
-            id: urlEntry.id,
-        },
-        data: {
-            shortCode,
-        },
-     });
+    let attempts = 0;
+    const maxAttempts = 3;
+    while(attempts<maxAttempts){
+        const shortCode = generationNanoId(7);
+        try{
+            return await prisma.url.create({
+                data:{
+                    originalUrl,
+                    shortCode,
+                    expiresAt: expiresAt ? new Date(expiresAt) : null,
+                    userId,
+                }
+            });
+        }catch(error){
+            if(error.code === 'P2002' && error.meta?.target?.includes('shortCode')){
+                attempts++;
+                console.warn(`ShortCode collision detected, Retrying ${attempts}/${maxAttempts}`);
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw new Error('Server was unable to generate short links currently, Please try again.');
 }
 
 async function getOriginalUrl(shortCode){

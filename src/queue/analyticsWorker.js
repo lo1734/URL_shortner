@@ -6,7 +6,8 @@ const { trackClick } = require('../analytics/analyticsServices');
 
 const worker = new Worker(
     'analyticsQueue',
-    async(job)=>{\n        console.log(
+    async(job)=>{
+        console.log(
             'Processing analytics job:',
             job.id,
             'for code',
@@ -24,18 +25,21 @@ const worker = new Worker(
     }
 );
 
-worker.on('completed', (job)=>{\n    console.log(
+worker.on('completed', (job)=>{
+    console.log(
         `Job ${job.id} is completed.`
     );
 });
 
-worker.on('failed',(job,err)=>{\n    console.log(
+worker.on('failed',(job,err)=>{
+    console.log(
         `Job ${job.id} failed to process analytics data. Error: `,
         err.message
     );
 });
 
-worker.on('error',(err)=>{\n    console.error("Redis worker connection error detected:",err);
+worker.on('error',(err)=>{
+    console.error("Redis worker connection error detected:",err);
 });
 
 worker.on('ready', () => {
@@ -43,4 +47,3 @@ worker.on('ready', () => {
 });
 
 module.exports = worker;
-

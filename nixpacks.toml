@@ -1,0 +1,5 @@
+[phases.build]
+cmds = ["npm install", "cd client && npm install && npm run build && cd ..", "npx prisma generate"]
+
+[start]
+cmd = "npm start"

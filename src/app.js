@@ -11,6 +11,8 @@ const {
 //import 'client' from './monitoring/metrics.js'
 const { client } = require('./monitoring/metrics.js');
 
+const path = require('path');
+
 
 const app = express();
 app.use(cors());
@@ -56,6 +58,10 @@ app.use('/auth',authRoutes);
 //app.use('/analyticsRoutes', analyticsRoutes)
 app.use('/analytics', analyticsRoutes)
 
+app.use(express.static(path.join(__dirname, '../client/dist')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
+});
 
 module.exports= app;
 
